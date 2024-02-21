@@ -20,12 +20,13 @@ libname output "C:\Users\win10\Desktop\output";
 %let top10_etf_nav_vars = code exchange name NAV202104;/*select top10 etf*/
 /************************************************/
 /*change the format of date*/
-data work.daily_return;
+data work.daily_return; /*this is ETF return*/
 set project.daily_information;
 date = input(trddt,yymmdd10.);
 format date yymmddn8.;
 drop trddt;
 run;
+
 data work.nav_return;
 set project.target_index;
 date = input(tradingdate,yymmdd10.);
@@ -34,6 +35,7 @@ format date yymmddn8.;
 format nav_date yymmddn8.;
 drop tradingdate navenddate;
 run;
+
 data work.funds_index_return;
 set project.index_information;
 format year month BEST12.;
@@ -41,6 +43,7 @@ year=substr(Trdmnt,1,4);
 month=substr(Trdmnt,6,2);
 drop Trdmnt;
 run;
+
 data work.target_index_list;
 set project.target_index;
 date=input(tradingdate,yymmdd10.);
@@ -48,6 +51,7 @@ format date yymmddn8.;
 year=year(date);
 month=month(date); 
 run;
+
 data work.fund_dividend;
 set project.fund_dividend;
 date=input(primarypaydate_dividend,yymmdd10.);
@@ -56,6 +60,7 @@ year = year(date);
 month=month(date);
 drop Announcementdate Secondarypaydate_dividend;
 run;
+
 data work.fund_shareschange;
 set project.fund_sharechange;
 startdate1=input(startdate,yymmdd10.);
@@ -84,6 +89,7 @@ nav_lag = lag(nav);
 nav_return=log(nav/nav_lag);
 drop fundcd;
 run;
+
 /*Only keep ETFs that have intact data from 2015 to 2021*/
 data project.etf_nav;
 set project.etf_nav;
@@ -92,6 +98,7 @@ run;
 proc sort data=project.etf_nav;
 by code;
 run;
+
 /*only choose ETF data among all funds*/
 proc sql;
 create table work.true_etf
@@ -99,6 +106,7 @@ as select a.*, b.code
 from work.return_etf_nav a, project.etf_nav b
 where a.code = b.code;
 run;
+
 /*calculate tracking error between ETF return and NAV return*/
 data work.true_etf;
    retain code date dretwd nav_date nav_return_percent nav_lag nav_return;
@@ -111,6 +119,7 @@ run;
 proc sort data=work.true_etf;
 by date;
 run;
+
 /*merge ETF and NAV return*/
 data work.results_etf_nav;
 set work.true_etf;
@@ -118,6 +127,7 @@ year=year(date);month=month(date);
 by date;
 keep &results_etf_nav_filter;
 run;
+
 /*Get average monthly return, merge different ETFs together according to year and month*/
 proc sql;
 create table work.monthly_results_etf_nav as select year,month,
@@ -125,6 +135,7 @@ mean(nav_return) as monthly_nav_return,
 mean(etf_return_lag) as monthly_etf_return
 from work.results_etf_nav group by year, month;
 quit;
+
 /*exclude missing terms*/
 data work.nonmissing_target_index_list;
 set work.target_index_list;
@@ -134,6 +145,7 @@ run;
 proc sort data=work.nonmissing_target_index_list;
 by tgtindex date;
 run;
+
 /*Only keep indexes which are target indexes for ETFs*/
 proc sql;
 create table work.index_return
@@ -141,6 +153,7 @@ as select a.*, b.indexcd,idxrtn
 from work.nonmissing_target_index_list a, work.funds_index_return b
 where a.tgtindex = b.indexcd and a.year=b.year and a.month=b.month;
 run;
+
 /*Calculate target index return*/
 proc sort data=work.index_return;
 by year month symbol;
@@ -150,6 +163,7 @@ set work.index_return;
 by year month symbol;
 drop exchangecode date indexcd;
 run;
+
 /*Merge different index returns according to year and month*/
 proc sql;
 create table work.monthly_results_index as select year,month,
@@ -163,6 +177,7 @@ by year month;
 where &date_filter;/*only preserve data from 2015 to 2021*/
 retain year month monthly_index_return monthly_cashdiffer;
 run;
+
 /*Get an ETF-NAV-Index return table for calculating tracking errors and making regressions*/
 proc sql;
 create table work.etf_nav_index_monthly
@@ -196,6 +211,7 @@ create table work.average_etf_liquidity as select year,month,
 mean(liquidity_value)/10000 as average_liquidity
 from work.etf_liquidity group by year,month;
 quit;
+
 /*Return difference*/
 data work.return_difference;
 set work.etf_nav_index_monthly_adjusted;
@@ -203,6 +219,7 @@ ETF_NAV=ABS(monthly_etf_return-monthly_nav_return);
 NAV_Index=ABS(monthly_nav_return-monthly_index_return_adjusted);
 drop monthly_cashdiffer monthly_nav_return monthly_etf_return monthly_index_return_adjusted;
 run;
+
 /*Return difference and liquidity comparison*/
 proc sql;
 create table project.difference_liquidity
@@ -352,6 +369,7 @@ set work.etf_dividend;
 drop  symbol symbol1 primarypaydate_dividend distributionplan;
 if date=. then delete;/*only keep cash dividend*/
 run;
+
 /*Factor2:shares factor*/
 data work.fund_shareschange;
 set work.fund_shareschange;
